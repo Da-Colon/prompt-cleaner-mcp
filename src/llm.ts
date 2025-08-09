@@ -38,7 +38,7 @@ export interface LlmCallOptions {
   apiKey?: string;
 }
 
-async function rawFetch(path: string, init: any, timeoutMs: number, retry: boolean): Promise<Response> {
+async function rawFetch(path: string, init: any, timeoutMs: number, retry: boolean, apiKey?: string): Promise<Response> {
   // Ensure we preserve any base path (e.g. /v1) when joining URLs
   const base = config.apiBase.endsWith("/") ? config.apiBase : config.apiBase + "/";
   const rel = path.startsWith("/") ? path.slice(1) : path;
@@ -46,7 +46,8 @@ async function rawFetch(path: string, init: any, timeoutMs: number, retry: boole
   const headers: Record<string, string> = {
     "content-type": "application/json",
   };
-  if (config.apiKey) headers["authorization"] = `Bearer ${config.apiKey}`;
+  const key = apiKey ?? config.apiKey;
+  if (key) headers["authorization"] = `Bearer ${key}`;
   if (init?.headers) Object.assign(headers, init.headers);
 
   const doFetch = async () => {
@@ -101,7 +102,7 @@ export async function chatCompletions(body: ChatCompletionRequestBody, opts: Llm
   const res = await rawFetch("/chat/completions", {
     method: "POST",
     body: JSON.stringify(body),
-  }, timeoutMs, retry);
+  }, timeoutMs, retry, opts.apiKey);
 
   const text = await res.text();
   try {
@@ -119,7 +120,13 @@ export async function chatCompletions(body: ChatCompletionRequestBody, opts: Llm
   }
 }
 
-export async function simpleCompletion(prompt: string, model: string, temperature = 0, maxTokens = 800): Promise<{ completion: string; model: string; usage?: Record<string, unknown> }>{
+export async function simpleCompletion(
+  prompt: string,
+  model: string,
+  temperature = 0,
+  maxTokens = 800,
+  opts: LlmCallOptions = {}
+): Promise<{ completion: string; model: string; usage?: Record<string, unknown> }>{
   const response = await chatCompletions({
     model,
     temperature,
@@ -127,7 +134,7 @@ export async function simpleCompletion(prompt: string, model: string, temperatur
     messages: [
       { role: "user", content: prompt }
     ],
-  });
+  }, opts);
   const first = response.choices?.[0];
   const content = first?.message?.content || "";
   return { completion: content, model: response.model || model, usage: response.usage };

@@ -31,21 +31,6 @@ export function listTools() {
         required: ["prompt"],
       },
     },
-    // Alias for convenience; behaves the same as retouch-prompt
-    {
-      name: "retoucher",
-      description:
-        "Alias of retouch-prompt; retouch a raw prompt and return structured JSON with retouched string and annotations",
-      inputSchema: {
-        type: "object",
-        properties: {
-          prompt: { type: "string", description: "Raw user prompt" },
-          mode: { type: "string", enum: ["code", "general"], description: "Retouching mode" },
-          temperature: { type: "number", description: "Sampling temperature (0-2)" },
-        },
-        required: ["prompt"],
-      },
-    },
     {
       name: "llm-forward",
       description: "Forward a prompt to local OpenAI-compatible LLM and return raw completion",
