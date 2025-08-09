@@ -15,7 +15,7 @@ describe("llm.forward tool", () => {
   beforeEach(() => vi.clearAllMocks());
 
   it("honors sanitize option", async () => {
-    const res = await callTool("llm.forward", { prompt: "use key sk-ABC1234567890", sanitize: true });
+    const res = await callTool("llm-forward", { prompt: "use key sk-ABC1234567890", sanitize: true });
     // Should return JSON content first
     expect(res.content[0].type).toBe("json");
     const json: any = (res.content[0] as any).json;
@@ -23,7 +23,7 @@ describe("llm.forward tool", () => {
   });
 
   it("passes temperature and maxTokens", async () => {
-    await callTool("llm.forward", { prompt: "hi", temperature: 0.3, maxTokens: 123 });
+    await callTool("llm-forward", { prompt: "hi", temperature: 0.3, maxTokens: 123 });
     expect((simpleCompletion as any).mock.calls[0][2]).toBe(0.3);
     expect((simpleCompletion as any).mock.calls[0][3]).toBe(123);
   });

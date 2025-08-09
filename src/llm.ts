@@ -39,7 +39,10 @@ export interface LlmCallOptions {
 }
 
 async function rawFetch(path: string, init: any, timeoutMs: number, retry: boolean): Promise<Response> {
-  const url = new URL(path, config.apiBase).toString();
+  // Ensure we preserve any base path (e.g. /v1) when joining URLs
+  const base = config.apiBase.endsWith("/") ? config.apiBase : config.apiBase + "/";
+  const rel = path.startsWith("/") ? path.slice(1) : path;
+  const url = new URL(rel, base).toString();
   const headers: Record<string, string> = {
     "content-type": "application/json",
   };

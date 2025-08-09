@@ -24,13 +24,22 @@ async function main() {
   );
 
   server.setRequestHandler(ListToolsRequestSchema, async () => {
+    logger.info("tools.list", {});
     return { tools: listTools() };
   });
 
   server.setRequestHandler(CallToolRequestSchema, async (request) => {
     const name = request.params.name;
     const args = request.params.arguments ?? {};
-    return await callTool(name, args);
+    logger.info("tools.call.start", { name });
+    const res: any = await callTool(name, args);
+    // Normalize unsupported content types for MCP clients (e.g., some don't accept "json")
+    const normalizedContent = Array.isArray(res?.content)
+      ? res.content.map((c: any) => (c && c.type === "json" ? { type: "text", text: JSON.stringify(c.json) } : c))
+      : res?.content;
+    const out = { ...res, content: normalizedContent };
+    logger.info("tools.call.done", { name });
+    return out;
   });
 
   const transport = new StdioServerTransport();

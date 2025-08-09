@@ -9,7 +9,7 @@ describe("tools registry", () => {
   });
 
   it("health.ping returns ok true", async () => {
-    const out = await callTool("health.ping", {});
+    const out = await callTool("health-ping", {});
     expect(out.content[0].type).toBe("json");
     expect((out.content[0] as any).json).toEqual({ ok: true });
   });
