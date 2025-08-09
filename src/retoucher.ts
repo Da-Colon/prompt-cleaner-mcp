@@ -19,15 +19,61 @@ async function loadRetoucherSystemPrompt(): Promise<string> {
 }
 
 function extractFirstJsonObject(text: string): any {
-  const first = text.indexOf("{");
-  const last = text.lastIndexOf("}");
-  if (first === -1 || last === -1 || last <= first) throw new Error("Retoucher returned non-JSON");
-  const slice = text.slice(first, last + 1);
+  // Remove common code fences (```json ... ``` or ``` ... ```)
+  const unfenced = text.replace(/```[a-zA-Z]*\n?/g, "").replace(/```/g, "").trim();
+
+  // Fast path: try parsing the whole string
   try {
-    return JSON.parse(slice);
-  } catch {
-    throw new Error("Retoucher returned non-JSON");
+    return JSON.parse(unfenced);
+  } catch {}
+
+  // Scan for the first balanced JSON object while ignoring braces inside strings
+  const s = unfenced;
+  let start = -1;
+  let depth = 0;
+  let inString = false;
+  let escape = false;
+  for (let i = 0; i < s.length; i++) {
+    const ch = s[i];
+    if (inString) {
+      if (escape) {
+        escape = false;
+        continue;
+      }
+      if (ch === "\\") {
+        escape = true;
+        continue;
+      }
+      if (ch === '"') {
+        inString = false;
+      }
+      continue;
+    }
+    if (ch === '"') {
+      inString = true;
+      continue;
+    }
+    if (ch === "{") {
+      if (depth === 0) start = i;
+      depth++;
+      continue;
+    }
+    if (ch === "}") {
+      if (depth > 0) {
+        depth--;
+        if (depth === 0 && start !== -1) {
+          const candidate = s.slice(start, i + 1);
+          try {
+            return JSON.parse(candidate);
+          } catch {
+            // keep scanning; there may be another valid object ahead
+            start = -1;
+          }
+        }
+      }
+    }
   }
+  throw new Error("Retoucher returned non-JSON");
 }
 
 export async function retouchPrompt(input: RetouchInputT): Promise<RetouchOutputT> {
