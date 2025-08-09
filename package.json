@@ -18,7 +18,13 @@
     "build": "tsc -p .",
     "start": "node dist/server.js",
     "test": "vitest run",
-    "inspect": "mcp-inspector tsx src/server.ts"
+    "inspect": "mcp-inspector tsx src/server.ts",
+    "lint": "eslint . --ext .ts",
+    "lint:fix": "eslint . --ext .ts --fix",
+    "format": "prettier --check .",
+    "format:write": "prettier --write .",
+    "probe": "tsx scripts/mcp_health.ts",
+    "demo": "tsx scripts/use_tools.ts"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "0.6.0",
