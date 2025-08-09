@@ -1,0 +1,35 @@
+{
+  "name": "mcp-retoucher",
+  "version": "0.1.0",
+  "description": "Retouch+Forward MCP server",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "bin": {
+    "mcp-retoucher": "./dist/server.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "dev": "tsx src/server.ts",
+    "build": "tsc -p .",
+    "start": "node dist/server.js",
+    "test": "vitest run",
+    "inspect": "mcp-inspector tsx src/server.ts"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "0.6.0",
+    "dotenv": "^16.4.5",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@modelcontextprotocol/inspector": "^0.4.1",
+    "@types/node": "^20.11.24",
+    "tsx": "^4.16.2",
+    "typescript": "^5.3.3",
+    "vitest": "^1.6.0"
+  }
+}
