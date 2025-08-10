@@ -1,16 +1,18 @@
+![Prompt Retoucher](./prompt-retoucher-banner.png)
+
 # mcp-retoucher MCP Server
 
 TypeScript MCP server exposing tools for prompt retouching and LLM forwarding. Includes health checks, secret redaction, structured schemas, and client-friendly output normalization.
 
 ## Features
 
-- __Tools__
+- **Tools**
   - `health-ping`: liveness probe returning `{ ok: true }`.
   - `retouch-prompt` (alias: `retoucher`): retouch a raw prompt; returns structured JSON with retouched string, notes, openQuestions, risks, and redactions.
   - `llm-forward`: send a prompt to a local OpenAI-compatible API and return raw completion.
-- __Secret redaction__: Sensitive patterns are scrubbed from logs and outputs in `src/redact.ts`.
-- __Output normalization__: `src/server.ts` converts content with `type: "json"` to plain text for clients that reject JSON content types.
-- __Configurable__: LLM base URL, API key, model, timeout, log level; optional local-only enforcement.
+- **Secret redaction**: Sensitive patterns are scrubbed from logs and outputs in `src/redact.ts`.
+- **Output normalization**: `src/server.ts` converts content with `type: "json"` to plain text for clients that reject JSON content types.
+- **Configurable**: LLM base URL, API key, model, timeout, log level; optional local-only enforcement.
 
 ## Requirements
 
@@ -71,16 +73,16 @@ ENFORCE_LOCAL_API=false
 
 All tools follow MCP Tool semantics. Content is returned as `[{ type: "json", json: <payload> }]` and normalized to `type: "text"` by the server for clients that require it.
 
-- __health-ping__
+- **health-ping**
   - Input: `{}`
   - Output: `{ ok: true }`
 
-- __retouch-prompt__ (alias: `retoucher`)
+- **retouch-prompt** (alias: `retoucher`)
   - Input: `{ prompt: string, mode?: "code"|"general", temperature?: number }`
   - Output: `{ retouched: string, notes?: string[], openQuestions?: string[], risks?: string[], redactions?: ["[REDACTED]"][] }`
   - Behavior: Applies a system prompt from `prompts/retoucher.md`, calls the configured LLM, extracts first JSON object, validates with Zod, and redacts secrets.
 
-- __llm-forward__
+- **llm-forward**
   - Input: `{ prompt: string, model?: string, temperature?: number, maxTokens?: number, sanitize?: boolean }`
   - Output: `{ completion: string, model: string, usage?: Record<string, unknown> }`
   - Behavior: Sends prompt to the configured LLM. If `sanitize` is `true`, secrets are redacted before sending.
