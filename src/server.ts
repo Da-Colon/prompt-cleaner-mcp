@@ -2,10 +2,7 @@
 
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import {
-  CallToolRequestSchema,
-  ListToolsRequestSchema,
-} from "@modelcontextprotocol/sdk/types.js";
+import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
 import { listTools, callTool } from "./tools.js";
 import { logger } from "./log.js";
 import { config } from "./config.js";
@@ -21,7 +18,7 @@ async function main() {
       capabilities: {
         tools: {},
       },
-    }
+    },
   );
 
   server.setRequestHandler(ListToolsRequestSchema, async () => {

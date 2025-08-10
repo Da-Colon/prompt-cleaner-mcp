@@ -21,7 +21,10 @@ async function loadCleanerSystemPrompt(): Promise<string> {
 
 function extractFirstJsonObject(text: string): any {
   // Remove common code fences (```json ... ``` or ``` ... ```)
-  const unfenced = text.replace(/```[a-zA-Z]*\n?/g, "").replace(/```/g, "").trim();
+  const unfenced = text
+    .replace(/```[a-zA-Z]*\n?/g, "")
+    .replace(/```/g, "")
+    .trim();
 
   // Fast path: try parsing the whole string
   try {
@@ -97,21 +100,25 @@ export async function retouchPrompt(input: RetouchInputT): Promise<RetouchOutput
   let lastErr: Error | undefined;
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     // Escalate on retries: enforce temperature 0 and stricter system instructions
-    const strictSuffix = attempt > 1
-      ? "\n\nSTRICT OUTPUT MODE: Respond with EXACTLY ONE JSON object and nothing else. No prose. No code fences. No prefix/suffix."
-      : "";
+    const strictSuffix =
+      attempt > 1
+        ? "\n\nSTRICT OUTPUT MODE: Respond with EXACTLY ONE JSON object and nothing else. No prose. No code fences. No prefix/suffix."
+        : "";
     const sysAttempt = sys + strictSuffix;
     const tempAttempt = attempt > 1 ? 0 : baseTemperature;
 
-    const response = await chatCompletions({
-      model: config.model,
-      temperature: tempAttempt,
-      max_tokens: 600,
-      messages: [
-        { role: "system", content: sysAttempt },
-        { role: "user", content: userBody },
-      ],
-    }, { requestId: input.requestId });
+    const response = await chatCompletions(
+      {
+        model: config.model,
+        temperature: tempAttempt,
+        max_tokens: 600,
+        messages: [
+          { role: "system", content: sysAttempt },
+          { role: "user", content: userBody },
+        ],
+      },
+      { requestId: input.requestId },
+    );
 
     const content = response.choices?.[0]?.message?.content ?? "";
     const initial = redactSecrets(content);
@@ -127,7 +134,8 @@ export async function retouchPrompt(input: RetouchInputT): Promise<RetouchOutput
       const totalRedactions = initial.count + redactions;
       const result: RetouchOutputT = {
         ...value,
-        redactions: totalRedactions > 0 ? Array(totalRedactions).fill("[REDACTED]") : value.redactions,
+        redactions:
+          totalRedactions > 0 ? Array(totalRedactions).fill("[REDACTED]") : value.redactions,
       };
 
       logger.info("retouch.prompt", {

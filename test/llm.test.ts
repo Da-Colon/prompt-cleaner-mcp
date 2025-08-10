@@ -26,7 +26,10 @@ describe("llm client", () => {
 
   it("times out with clear message", async () => {
     globalThis.fetch = vi.fn(() => new Promise(() => {})) as any;
-    const p = chatCompletions({ model: "m", messages: [{ role: "user", content: "hi" }] }, { timeoutMs: 5, retry: false });
+    const p = chatCompletions(
+      { model: "m", messages: [{ role: "user", content: "hi" }] },
+      { timeoutMs: 5, retry: false },
+    );
     // Attach rejection handler before advancing timers to avoid PromiseRejectionHandledWarning
     const expectation = expect(p).rejects.toThrow("LLM timeout after 5ms");
     await vi.advanceTimersByTimeAsync(6);
@@ -37,11 +40,12 @@ describe("llm client", () => {
   it("surfaces HTTP 500 with retry then error", async () => {
     const r1 = new Response("oops1", { status: 500 });
     const r2 = new Response("oops2", { status: 500 });
-    globalThis.fetch = vi.fn()
-      .mockResolvedValueOnce(r1)
-      .mockResolvedValueOnce(r2) as any;
+    globalThis.fetch = vi.fn().mockResolvedValueOnce(r1).mockResolvedValueOnce(r2) as any;
 
-    const p = chatCompletions({ model: "m", messages: [{ role: "user", content: "hi" }] }, { timeoutMs: 100, retry: true, maxRetries: 1 });
+    const p = chatCompletions(
+      { model: "m", messages: [{ role: "user", content: "hi" }] },
+      { timeoutMs: 100, retry: true, maxRetries: 1 },
+    );
     // Advance fake timers to elapse retry backoff sleep
     const expectation = expect(p).rejects.toThrow(/LLM HTTP 500: oops2/);
     await vi.advanceTimersByTimeAsync(1);
@@ -51,7 +55,10 @@ describe("llm client", () => {
   it("surfaces HTTP 400 without retry", async () => {
     const r = new Response("bad", { status: 400 });
     globalThis.fetch = vi.fn().mockResolvedValue(r) as any;
-    const p = chatCompletions({ model: "m", messages: [{ role: "user", content: "hi" }] }, { timeoutMs: 100, retry: true });
+    const p = chatCompletions(
+      { model: "m", messages: [{ role: "user", content: "hi" }] },
+      { timeoutMs: 100, retry: true },
+    );
     await expect(p).rejects.toThrow(/LLM HTTP 400: bad/);
   });
 
@@ -61,12 +68,20 @@ describe("llm client", () => {
       object: "chat.completion",
       created: Date.now(),
       model: "m",
-      choices: [{ index: 0, message: { role: "assistant", content: "hello" }, finish_reason: "stop" }],
+      choices: [
+        { index: 0, message: { role: "assistant", content: "hello" }, finish_reason: "stop" },
+      ],
       usage: { prompt_tokens: 1, completion_tokens: 1 },
     };
-    const r = new Response(JSON.stringify(body), { status: 200, headers: { "content-type": "application/json" } });
+    const r = new Response(JSON.stringify(body), {
+      status: 200,
+      headers: { "content-type": "application/json" },
+    });
     globalThis.fetch = vi.fn().mockResolvedValue(r) as any;
-    const out = await chatCompletions({ model: "m", messages: [{ role: "user", content: "hi" }] }, { timeoutMs: 100 });
+    const out = await chatCompletions(
+      { model: "m", messages: [{ role: "user", content: "hi" }] },
+      { timeoutMs: 100 },
+    );
     expect(out.choices[0].message?.content).toBe("hello");
   });
 });

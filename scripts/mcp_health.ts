@@ -15,11 +15,18 @@ async function main() {
   try {
     const tools = await (client as any).request(ListToolsRequestSchema, {});
     console.log("TOOLS:", tools.tools.map((t: any) => t.name).join(", "));
-    const health = await (client as any).request(CallToolRequestSchema, { name: "health-ping", arguments: {} });
+    const health = await (client as any).request(CallToolRequestSchema, {
+      name: "health-ping",
+      arguments: {},
+    });
     console.log("HEALTH:", JSON.stringify(health, null, 2));
     const cleaned = await (client as any).request(CallToolRequestSchema, {
       name: "cleaner",
-      arguments: { prompt: "Make this more professional and concise: 'pls fix the bug soon thx'", mode: "general", temperature: 0.2 },
+      arguments: {
+        prompt: "Make this more professional and concise: 'pls fix the bug soon thx'",
+        mode: "general",
+        temperature: 0.2,
+      },
     });
     console.log("CLEANER:", JSON.stringify(cleaned, null, 2));
   } finally {

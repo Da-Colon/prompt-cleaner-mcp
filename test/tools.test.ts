@@ -7,10 +7,17 @@ vi.mock("../src/llm.js", () => {
       created: Date.now(),
       model: "mock-model",
       choices: [
-        { index: 0, message: { role: "assistant", content: '{"retouched":"Cleaned","notes":[],"openQuestions":[],"risks":[]}' }, finish_reason: "stop" }
+        {
+          index: 0,
+          message: {
+            role: "assistant",
+            content: '{"retouched":"Cleaned","notes":[],"openQuestions":[],"risks":[]}',
+          },
+          finish_reason: "stop",
+        },
       ],
-      usage: { prompt_tokens: 1, completion_tokens: 1 }
-    }))
+      usage: { prompt_tokens: 1, completion_tokens: 1 },
+    })),
   };
 });
 import { listTools, callTool } from "../src/tools.js";
@@ -18,13 +25,10 @@ import { listTools, callTool } from "../src/tools.js";
 describe("tools registry", () => {
   it("registers cleaner, aliases, and health", () => {
     const tools = listTools();
-    const names = tools.map(t => t.name);
-    expect(names).toEqual(expect.arrayContaining([
-      "health-ping",
-      "cleaner",
-      "sanitize-text",
-      "normalize-prompt",
-    ]));
+    const names = tools.map((t) => t.name);
+    expect(names).toEqual(
+      expect.arrayContaining(["health-ping", "cleaner", "sanitize-text", "normalize-prompt"]),
+    );
   });
 
   it("health.ping returns ok true", async () => {

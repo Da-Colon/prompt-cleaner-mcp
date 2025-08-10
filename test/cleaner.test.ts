@@ -10,11 +10,18 @@ vi.mock("../src/llm.js", () => {
         created: Date.now(),
         model: body?.model || "mock-model",
         choices: [
-          { index: 0, message: { role: "assistant", content: '{"retouched":"Cleaned","notes":["n"],"openQuestions":["q"],"risks":["r"]}' }, finish_reason: "stop" }
+          {
+            index: 0,
+            message: {
+              role: "assistant",
+              content: '{"retouched":"Cleaned","notes":["n"],"openQuestions":["q"],"risks":["r"]}',
+            },
+            finish_reason: "stop",
+          },
         ],
-        usage: { prompt_tokens: 1, completion_tokens: 1 }
+        usage: { prompt_tokens: 1, completion_tokens: 1 },
       } as any;
-    })
+    }),
   };
 });
 
@@ -43,8 +50,17 @@ describe("cleaner", () => {
       object: "chat.completion",
       created: Date.now(),
       model: "local-coder",
-      choices: [{ index: 0, message: { role: "assistant", content: '{"retouched":"Use key sk-SECRETKEY in code","notes":[]}' }, finish_reason: "stop" }],
-      usage: { prompt_tokens: 1, completion_tokens: 1 }
+      choices: [
+        {
+          index: 0,
+          message: {
+            role: "assistant",
+            content: '{"retouched":"Use key sk-SECRETKEY in code","notes":[]}',
+          },
+          finish_reason: "stop",
+        },
+      ],
+      usage: { prompt_tokens: 1, completion_tokens: 1 },
     });
     const out = await retouchPrompt({ prompt: "Please use sk-ANOTHERSECRET in function" });
     expect(out.retouched.includes("[REDACTED]")).toBe(true);
@@ -58,14 +74,26 @@ describe("cleaner", () => {
       object: "chat.completion",
       created: Date.now(),
       model: "local-coder",
-      choices: [{ index: 0, message: { role: "assistant", content: "garbage text no json" }, finish_reason: "stop" }],
+      choices: [
+        {
+          index: 0,
+          message: { role: "assistant", content: "garbage text no json" },
+          finish_reason: "stop",
+        },
+      ],
     });
     (chatCompletions as any).mockResolvedValueOnce({
       id: "x2",
       object: "chat.completion",
       created: Date.now(),
       model: "local-coder",
-      choices: [{ index: 0, message: { role: "assistant", content: "still not json" }, finish_reason: "stop" }],
+      choices: [
+        {
+          index: 0,
+          message: { role: "assistant", content: "still not json" },
+          finish_reason: "stop",
+        },
+      ],
     });
     await expect(retouchPrompt({ prompt: "x" })).rejects.toThrow("Cleaner returned non-JSON");
   });
@@ -77,7 +105,9 @@ describe("cleaner", () => {
       object: "chat.completion",
       created: Date.now(),
       model: "local-coder",
-      choices: [{ index: 0, message: { role: "assistant", content: "not json" }, finish_reason: "stop" }],
+      choices: [
+        { index: 0, message: { role: "assistant", content: "not json" }, finish_reason: "stop" },
+      ],
     });
     const out = await retouchPrompt({ prompt: "hello" });
     expect(out.retouched).toBeDefined();

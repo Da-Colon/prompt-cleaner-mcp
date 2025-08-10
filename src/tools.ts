@@ -10,16 +10,15 @@ export function listTools() {
   return [
     {
       name: "cleaner",
-      description:
-        [
-          "Pre-reasoning prompt normalizer and PII redactor.",
-          "Use when: you receive raw/free-form user text and need it cleaned before planning, tool selection, or code execution.",
-          "Does: normalize tone, structure the ask, and redact secrets; preserves user intent.",
-          "Safe: read-only, idempotent, no side effects (good default to run automatically).",
-          "Input: { prompt, mode?, temperature? } — defaults mode='general', temperature=0.2; mode='code' only for code-related prompts.",
-          "Output: JSON { retouched, notes?, openQuestions?, risks?, redactions? }.",
-          "Keywords: clean, sanitize, normalize, redact, structure, preprocess, guardrails"
-        ].join("\n"),
+      description: [
+        "Pre-reasoning prompt normalizer and PII redactor.",
+        "Use when: you receive raw/free-form user text and need it cleaned before planning, tool selection, or code execution.",
+        "Does: normalize tone, structure the ask, and redact secrets; preserves user intent.",
+        "Safe: read-only, idempotent, no side effects (good default to run automatically).",
+        "Input: { prompt, mode?, temperature? } — defaults mode='general', temperature=0.2; mode='code' only for code-related prompts.",
+        "Output: JSON { retouched, notes?, openQuestions?, risks?, redactions? }.",
+        "Keywords: clean, sanitize, normalize, redact, structure, preprocess, guardrails",
+      ].join("\n"),
       inputSchema: {
         type: "object",
         properties: {

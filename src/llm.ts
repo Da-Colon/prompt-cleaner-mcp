@@ -62,7 +62,10 @@ export class TimeoutError extends Error {
 }
 
 export class HttpError extends Error {
-  constructor(public status: number, public bodyPreview: string) {
+  constructor(
+    public status: number,
+    public bodyPreview: string,
+  ) {
     super(`LLM HTTP ${status}: ${bodyPreview}`);
     this.name = "HttpError";
   }
@@ -82,7 +85,15 @@ export class NonJsonError extends Error {
   }
 }
 
-async function rawFetch(path: string, init: any, timeoutMs: number, retry: boolean, apiKey: string | undefined, requestId: string, attemptsRef?: { attempts: number }): Promise<Response> {
+async function rawFetch(
+  path: string,
+  init: any,
+  timeoutMs: number,
+  retry: boolean,
+  apiKey: string | undefined,
+  requestId: string,
+  attemptsRef?: { attempts: number },
+): Promise<Response> {
   // Ensure we preserve any base path (e.g. /v1) when joining URLs
   const base = config.apiBase.endsWith("/") ? config.apiBase : config.apiBase + "/";
   const rel = path.startsWith("/") ? path.slice(1) : path;
@@ -114,7 +125,11 @@ async function rawFetch(path: string, init: any, timeoutMs: number, retry: boole
       return res as Response;
     } catch (e: any) {
       if (timer) clearTimeout(timer);
-      if (e?.name === "AbortError" || e instanceof TimeoutError || String(e?.message || "").startsWith("LLM timeout after")) {
+      if (
+        e?.name === "AbortError" ||
+        e instanceof TimeoutError ||
+        String(e?.message || "").startsWith("LLM timeout after")
+      ) {
         throw new TimeoutError(timeoutMs);
       }
       throw e;
@@ -139,7 +154,12 @@ async function rawFetch(path: string, init: any, timeoutMs: number, retry: boole
         throw new HttpError(res.status, redacted.slice(0, 300));
       }
       const delay = backoffDelay(config.backoffMs, attempt, config.backoffJitter);
-      logger.warn("llm.retry", { request_id: requestId, attempt, status: res.status, delay_ms: delay });
+      logger.warn("llm.retry", {
+        request_id: requestId,
+        attempt,
+        status: res.status,
+        delay_ms: delay,
+      });
       await sleep(delay);
       continue;
     } catch (e: any) {
@@ -162,7 +182,10 @@ async function rawFetch(path: string, init: any, timeoutMs: number, retry: boole
   }
 }
 
-export async function chatCompletions(body: ChatCompletionRequestBody, opts: LlmCallOptions = {}): Promise<ChatCompletionResponse> {
+export async function chatCompletions(
+  body: ChatCompletionRequestBody,
+  opts: LlmCallOptions = {},
+): Promise<ChatCompletionResponse> {
   const start = Date.now();
   const timeoutMs = opts.timeoutMs ?? config.timeoutMs;
   const retry = opts.retry ?? true;
@@ -176,12 +199,22 @@ export async function chatCompletions(body: ChatCompletionRequestBody, opts: Llm
     // Respect config.forceJson by injecting response_format unless caller provided one
     const bodyToSend: ChatCompletionRequestBody = {
       ...body,
-      ...(config.forceJson && !body.response_format ? { response_format: { type: "json_object" } } : {}),
+      ...(config.forceJson && !body.response_format
+        ? { response_format: { type: "json_object" } }
+        : {}),
     };
-    const res = await rawFetch("/chat/completions", {
-      method: "POST",
-      body: JSON.stringify(bodyToSend),
-    }, timeoutMs, retry, opts.apiKey, requestId, attemptsRef);
+    const res = await rawFetch(
+      "/chat/completions",
+      {
+        method: "POST",
+        body: JSON.stringify(bodyToSend),
+      },
+      timeoutMs,
+      retry,
+      opts.apiKey,
+      requestId,
+      attemptsRef,
+    );
     status = res.status;
     const text = await res.text();
     try {
@@ -214,16 +247,17 @@ export async function simpleCompletion(
   model: string,
   temperature = 0,
   maxTokens = 800,
-  opts: LlmCallOptions = {}
-): Promise<{ completion: string; model: string; usage?: Record<string, unknown> }>{
-  const response = await chatCompletions({
-    model,
-    temperature,
-    max_tokens: maxTokens,
-    messages: [
-      { role: "user", content: prompt }
-    ],
-  }, opts);
+  opts: LlmCallOptions = {},
+): Promise<{ completion: string; model: string; usage?: Record<string, unknown> }> {
+  const response = await chatCompletions(
+    {
+      model,
+      temperature,
+      max_tokens: maxTokens,
+      messages: [{ role: "user", content: prompt }],
+    },
+    opts,
+  );
   const first = response.choices?.[0];
   const content = first?.message?.content || "";
   return { completion: content, model: response.model || model, usage: response.usage };
