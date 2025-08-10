@@ -43,14 +43,5 @@ jobs:
       - name: Build
         run: npm run build
 
-      - name: Test with coverage
-        run: npm test -- --coverage
-
-      - name: Upload coverage artifact
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: coverage-${{ matrix.node-version }}
-          path: coverage/
-          if-no-files-found: ignore
-          retention-days: 7
+      - name: Test
+        run: npm test
