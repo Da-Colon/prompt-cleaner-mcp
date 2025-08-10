@@ -9,14 +9,17 @@ export function jsonContent(json: unknown) {
 export function listTools() {
   return [
     {
-      name: "health-ping",
-      description: "Liveness probe; returns { ok: true }",
-      inputSchema: { type: "object", properties: {} },
-    },
-    {
       name: "cleaner",
       description:
-        "Prompt Cleaner. Use this on user-supplied text before you reason or respond to normalize tone, redact secrets/PII, and enforce a structured output. Defaults: mode='general', temperature=0.2. Use mode='code' only when the prompt is clearly about code. Do not change the user’s intent or factual content. Returns JSON with retouched text plus optional notes, openQuestions, risks, and redactions.",
+        [
+          "Pre-reasoning prompt normalizer and PII redactor.",
+          "Use when: you receive raw/free-form user text and need it cleaned before planning, tool selection, or code execution.",
+          "Does: normalize tone, structure the ask, and redact secrets; preserves user intent.",
+          "Safe: read-only, idempotent, no side effects (good default to run automatically).",
+          "Input: { prompt, mode?, temperature? } — defaults mode='general', temperature=0.2; mode='code' only for code-related prompts.",
+          "Output: JSON { retouched, notes?, openQuestions?, risks?, redactions? }.",
+          "Keywords: clean, sanitize, normalize, redact, structure, preprocess, guardrails"
+        ].join("\n"),
       inputSchema: {
         type: "object",
         properties: {
@@ -32,6 +35,49 @@ export function listTools() {
         required: ["prompt"],
       },
     },
+    {
+      name: "sanitize-text",
+      description:
+        "Alias of cleaner. Keywords: sanitize, scrub, redact, filter, pii, normalize, preprocess. Same input/output schema as 'cleaner'.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          prompt: { type: "string", description: "Raw user prompt" },
+          mode: {
+            type: "string",
+            enum: ["code", "general"],
+            description:
+              "Retouching mode; default 'general'. Use 'code' only for code-related prompts.",
+          },
+          temperature: { type: "number", description: "Sampling temperature (0-2); default 0.2" },
+        },
+        required: ["prompt"],
+      },
+    },
+    {
+      name: "normalize-prompt",
+      description:
+        "Alias of cleaner. Keywords: normalize, restructure, clarify, tighten, format, preflight. Same input/output schema as 'cleaner'.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          prompt: { type: "string", description: "Raw user prompt" },
+          mode: {
+            type: "string",
+            enum: ["code", "general"],
+            description:
+              "Retouching mode; default 'general'. Use 'code' only for code-related prompts.",
+          },
+          temperature: { type: "number", description: "Sampling temperature (0-2); default 0.2" },
+        },
+        required: ["prompt"],
+      },
+    },
+    {
+      name: "health-ping",
+      description: "Liveness probe; returns { ok: true }",
+      inputSchema: { type: "object", properties: {} },
+    },
   ];
 }
 
@@ -44,7 +90,9 @@ export async function callTool(name: string, args: unknown) {
         logger.info("health.ping", { elapsed_ms: Date.now() - start });
         return jsonContent(out);
       }
-      case "cleaner": {
+      case "cleaner":
+      case "sanitize-text":
+      case "normalize-prompt": {
         const parsed = RetouchInput.parse(args);
         const result = await retouchPrompt(parsed);
         const safe = RetouchOutput.parse(result);

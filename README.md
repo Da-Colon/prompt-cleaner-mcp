@@ -84,6 +84,12 @@ All tools follow MCP Tool semantics. Content is returned as `[{ type: "json", js
   - Output: `{ retouched: string, notes?: string[], openQuestions?: string[], risks?: string[], redactions?: ["[REDACTED]"][] }`
   - Behavior: Applies a system prompt from `prompts/cleaner.md`, calls the configured LLM, extracts first JSON object, validates with Zod, and redacts secrets.
 
+- **sanitize-text** (alias of `cleaner`)
+  - Same input/output schema and behavior as `cleaner`. Exposed for agents that keyword-match on “sanitize”, “PII”, or “redact”.
+
+- **normalize-prompt** (alias of `cleaner`)
+  - Same input/output schema and behavior as `cleaner`. Exposed for agents that keyword-match on “normalize”, “format”, or “preprocess”.
+
 ## Per-call API key override
 
 `src/llm.ts` accepts `apiKey` in options for per-call overrides; falls back to `LLM_API_KEY`.
