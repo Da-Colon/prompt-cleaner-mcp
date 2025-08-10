@@ -178,6 +178,13 @@ Add to your Claude Desktop config to run over stdio:
 }
 ```
 
+## LLM API compatibility
+
+- Works with OpenAI-compatible Chat Completions APIs (e.g., LM Studio local server) that expose `/v1/chat/completions`.
+- Configure via `LLM_API_BASE` and optional `LLM_API_KEY`. Use `ENFORCE_LOCAL_API=true` to restrict to localhost for development.
+- Set `LLM_MODEL` to the provider-specific model identifier. This server follows a single-model policy for determinism and reproducibility.
+- Providers must return valid JSON; the retoucher includes limited retries when content is not strictly JSON.
+
 ## Links
 
 - Model Context Protocol (spec): https://modelcontextprotocol.io
