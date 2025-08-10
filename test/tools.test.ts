@@ -2,10 +2,10 @@ import { describe, it, expect } from "vitest";
 import { listTools, callTool } from "../src/tools.js";
 
 describe("tools registry", () => {
-  it("registers three tools", () => {
+  it("registers two tools", () => {
     const tools = listTools();
     const names = tools.map(t => t.name).sort();
-    expect(names).toEqual(["health-ping", "llm-forward", "retouch-prompt"].sort());
+    expect(names).toEqual(["health-ping", "retouch-prompt"].sort());
   });
 
   it("health.ping returns ok true", async () => {

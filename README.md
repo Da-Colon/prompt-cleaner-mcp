@@ -2,14 +2,13 @@
 
 # mcp-retoucher MCP Server
 
-TypeScript MCP server exposing tools for prompt retouching and LLM forwarding. Includes health checks, secret redaction, structured schemas, and client-friendly output normalization.
+TypeScript MCP server exposing tools for prompt retouching. Includes health checks, secret redaction, structured schemas, and client-friendly output normalization.
 
 ## Features
 
 - **Tools**
   - `health-ping`: liveness probe returning `{ ok: true }`.
   - `retouch-prompt` (alias: `retoucher`): retouch a raw prompt; returns structured JSON with retouched string, notes, openQuestions, risks, and redactions.
-  - `llm-forward`: send a prompt to a local OpenAI-compatible API and return raw completion.
 - **Secret redaction**: Sensitive patterns are scrubbed from logs and outputs in `src/redact.ts`.
 - **Output normalization**: `src/server.ts` converts content with `type: "json"` to plain text for clients that reject JSON content types.
 - **Configurable**: LLM base URL, API key, model, timeout, log level; optional local-only enforcement.
@@ -82,11 +81,6 @@ All tools follow MCP Tool semantics. Content is returned as `[{ type: "json", js
   - Output: `{ retouched: string, notes?: string[], openQuestions?: string[], risks?: string[], redactions?: ["[REDACTED]"][] }`
   - Behavior: Applies a system prompt from `prompts/retoucher.md`, calls the configured LLM, extracts first JSON object, validates with Zod, and redacts secrets.
 
-- **llm-forward**
-  - Input: `{ prompt: string, model?: string, temperature?: number, maxTokens?: number, sanitize?: boolean }`
-  - Output: `{ completion: string, model: string, usage?: Record<string, unknown> }`
-  - Behavior: Sends prompt to the configured LLM. If `sanitize` is `true`, secrets are redacted before sending.
-
 ## Per-call API key override
 
 `src/llm.ts` accepts `apiKey` in options for per-call overrides; falls back to `LLM_API_KEY`.
@@ -99,7 +93,7 @@ All tools follow MCP Tool semantics. Content is returned as `[{ type: "json", js
 - `src/llm.ts`: LLM client with timeout, retry, and error normalization.
 - `src/redact.ts`: Secret redaction utilities.
 - `src/config.ts`: Environment configuration and validation.
-- `test/*.test.ts`: Vitest suite covering tools, shapes, retoucher, forwarding, and health.
+- `test/*.test.ts`: Vitest suite covering tools, shapes, retoucher, and health.
 
 ## Testing
 

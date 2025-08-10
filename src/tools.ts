@@ -1,9 +1,6 @@
 import { z } from "zod"
-import { RetouchInput, RetouchOutput, ForwardInput, ForwardOutput } from "./shapes.js"
+import { RetouchInput, RetouchOutput } from "./shapes.js"
 import { retouchPrompt } from "./retoucher.js"
-import { simpleCompletion } from "./llm.js"
-import { config } from "./config.js"
-import { redactSecrets, ensureNoSecretsInObject } from "./redact.js"
 import { logger } from "./log.js"
 
 export function jsonContent(json: unknown) {
@@ -27,21 +24,6 @@ export function listTools() {
           prompt: { type: "string", description: "Raw user prompt" },
           mode: { type: "string", enum: ["code", "general"], description: "Retouching mode" },
           temperature: { type: "number", description: "Sampling temperature (0-2)" },
-        },
-        required: ["prompt"],
-      },
-    },
-    {
-      name: "llm-forward",
-      description: "Forward a prompt to local OpenAI-compatible LLM and return raw completion",
-      inputSchema: {
-        type: "object",
-        properties: {
-          prompt: { type: "string", description: "Prompt to send" },
-          model: { type: "string", description: "Override model" },
-          temperature: { type: "number", description: "Temperature (0-2)" },
-          maxTokens: { type: "number", description: "Max tokens (default 800)" },
-          sanitize: { type: "boolean", description: "Redact secrets before send" },
         },
         required: ["prompt"],
       },
@@ -70,28 +52,6 @@ export async function callTool(name: string, args: unknown) {
           request_id: parsed.requestId,
         })
         return jsonContent(safe)
-      }
-      case "llm-forward": {
-        const parsed = ForwardInput.parse(args)
-        const model = parsed.model || config.model
-        const toSend = parsed.sanitize ? redactSecrets(parsed.prompt).text : parsed.prompt
-        const res = await simpleCompletion(
-          toSend,
-          model,
-          parsed.temperature ?? 0,
-          parsed.maxTokens ?? 800,
-          { requestId: parsed.requestId }
-        )
-        const safe = ForwardOutput.parse(res)
-        const redactedOut = ensureNoSecretsInObject(safe).value // ensure no secrets echo back
-        logger.info("llm.forward", {
-          elapsed_ms: Date.now() - start,
-          model,
-          input_len: parsed.prompt.length,
-          preview: logger.preview(parsed.prompt),
-          request_id: parsed.requestId,
-        })
-        return jsonContent(redactedOut)
       }
       default:
         throw new Error("Unknown tool")
