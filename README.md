@@ -108,7 +108,6 @@ npm test
 
 - **Single-model policy**: Uses `LLM_MODEL` from environment; no model listing/selection tool to keep behavior deterministic and reduce surface area.
 - **Output normalization**: `src/server.ts` converts `json` content to `text` for clients that reject JSON.
-  
 - **Secret redaction**: `src/redact.ts` scrubs sensitive tokens from logs and outputs.
 
 ## Troubleshooting
@@ -150,33 +149,6 @@ Usage:
 
 - In a chat, ask the agent to use `cleaner` with your raw prompt.
 - Or invoke tools from the agent UI if exposed by your setup.
-
-## Claude Desktop (example)
-
-Add to your Claude Desktop config to run over stdio:
-
-```json
-{
-  "mcpServers": {
-    "prompt-cleaner": {
-      "command": "node",
-      "args": ["/absolute/path/to/prompt-cleaner/dist/server.js"],
-      "env": {
-        "LLM_API_BASE": "http://localhost:1234/v1",
-        "LLM_API_KEY": "sk-xxxxx",
-        "LLM_MODEL": "open/ai-gpt-oss-20b",
-        "LLM_TIMEOUT_MS": "60000",
-        "LOG_LEVEL": "info",
-        "ENFORCE_LOCAL_API": "false",
-        "LLM_MAX_RETRIES": "1",
-        "RETOUCH_CONTENT_MAX_RETRIES": "1",
-        "LLM_BACKOFF_MS": "250",
-        "LLM_BACKOFF_JITTER": "0.2"
-      }
-    }
-  }
-}
-```
 
 ## LLM API compatibility
 
