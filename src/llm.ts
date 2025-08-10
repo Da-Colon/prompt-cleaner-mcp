@@ -52,7 +52,35 @@ function backoffDelay(baseMs: number, attempt: number, jitter: number) {
   return Math.max(0, Math.floor(exp * factor));
 }
 
-async function rawFetch(path: string, init: any, timeoutMs: number, retry: boolean, apiKey: string | undefined, requestId: string): Promise<Response> {
+export class TimeoutError extends Error {
+  constructor(public timeoutMs: number) {
+    super(`LLM timeout after ${timeoutMs}ms`);
+    this.name = "TimeoutError";
+  }
+}
+
+export class HttpError extends Error {
+  constructor(public status: number, public bodyPreview: string) {
+    super(`LLM HTTP ${status}: ${bodyPreview}`);
+    this.name = "HttpError";
+  }
+}
+
+export class NetworkError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "NetworkError";
+  }
+}
+
+export class NonJsonError extends Error {
+  constructor(message = "LLM returned non-JSON") {
+    super(message);
+    this.name = "NonJsonError";
+  }
+}
+
+async function rawFetch(path: string, init: any, timeoutMs: number, retry: boolean, apiKey: string | undefined, requestId: string, attemptsRef?: { attempts: number }): Promise<Response> {
   // Ensure we preserve any base path (e.g. /v1) when joining URLs
   const base = config.apiBase.endsWith("/") ? config.apiBase : config.apiBase + "/";
   const rel = path.startsWith("/") ? path.slice(1) : path;
@@ -74,7 +102,7 @@ async function rawFetch(path: string, init: any, timeoutMs: number, retry: boole
     const timeoutPromise: Promise<Response> = new Promise((_, reject) => {
       timer = setTimeout(() => {
         controller.abort();
-        reject(new Error(`LLM timeout after ${timeoutMs}ms`));
+        reject(new TimeoutError(timeoutMs));
       }, timeoutMs);
     });
     try {
@@ -84,8 +112,8 @@ async function rawFetch(path: string, init: any, timeoutMs: number, retry: boole
       return res as Response;
     } catch (e: any) {
       if (timer) clearTimeout(timer);
-      if (e?.name === "AbortError" || String(e?.message || "").startsWith("LLM timeout after")) {
-        throw new Error(`LLM timeout after ${timeoutMs}ms`);
+      if (e?.name === "AbortError" || e instanceof TimeoutError || String(e?.message || "").startsWith("LLM timeout after")) {
+        throw new TimeoutError(timeoutMs);
       }
       throw e;
     }
@@ -95,9 +123,9 @@ async function rawFetch(path: string, init: any, timeoutMs: number, retry: boole
   let attempt = 0;
   // Keep last failure message for throw
   let lastErrorMsg = "LLM request failed";
-  class NonRetryableError extends Error {}
   while (true) {
     attempt++;
+    if (attemptsRef) attemptsRef.attempts = attempt;
     try {
       const res = await doFetch();
       if (res.ok) return res;
@@ -106,19 +134,19 @@ async function rawFetch(path: string, init: any, timeoutMs: number, retry: boole
       lastErrorMsg = `LLM HTTP ${res.status}: ${redacted.slice(0, 300)}`;
       const retryable = res.status >= 500 && res.status < 600;
       if (!retryable || attempt > maxRetries) {
-        throw new NonRetryableError(lastErrorMsg);
+        throw new HttpError(res.status, redacted.slice(0, 300));
       }
       const delay = backoffDelay(config.backoffMs, attempt, config.backoffJitter);
       logger.warn("llm.retry", { request_id: requestId, attempt, status: res.status, delay_ms: delay });
       await sleep(delay);
       continue;
     } catch (e: any) {
-      if (e instanceof NonRetryableError) {
+      if (e instanceof HttpError || e instanceof TimeoutError) {
         throw e;
       }
       const msg = String(e?.message || e || lastErrorMsg);
       // Timeouts are final
-      if (msg.startsWith("LLM timeout after")) throw new Error(msg);
+      if (msg.startsWith("LLM timeout after")) throw new TimeoutError(timeoutMs);
       lastErrorMsg = msg;
       // Retry on network errors if allowed
       if (attempt <= maxRetries) {
@@ -127,7 +155,7 @@ async function rawFetch(path: string, init: any, timeoutMs: number, retry: boole
         await sleep(delay);
         continue;
       }
-      throw new Error(lastErrorMsg);
+      throw new NetworkError(lastErrorMsg);
     }
   }
 }
@@ -139,18 +167,27 @@ export async function chatCompletions(body: ChatCompletionRequestBody, opts: Llm
   const requestId = opts.requestId || randomUUID();
   const maxRetries = opts.maxRetries ?? config.maxRetries;
 
-  const res = await rawFetch("/chat/completions", {
-    method: "POST",
-    body: JSON.stringify(body),
-  }, timeoutMs, retry, opts.apiKey, requestId);
-
-  const text = await res.text();
+  const attemptsRef = { attempts: 0 };
+  let outcome: "ok" | "error" = "ok";
+  let status: number | undefined;
   try {
-    const json = JSON.parse(text);
-    return json as ChatCompletionResponse;
-  } catch {
-    const redacted = redactSecrets(text).text;
-    throw new Error(`LLM returned non-JSON: ${redacted.slice(0, 200)}`);
+    const res = await rawFetch("/chat/completions", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }, timeoutMs, retry, opts.apiKey, requestId, attemptsRef);
+    status = res.status;
+    const text = await res.text();
+    try {
+      const json = JSON.parse(text);
+      return json as ChatCompletionResponse;
+    } catch {
+      const redacted = redactSecrets(text).text;
+      throw new NonJsonError(`LLM returned non-JSON: ${redacted.slice(0, 200)}`);
+    }
+  } catch (e: any) {
+    outcome = "error";
+    if (e instanceof HttpError) status = e.status;
+    throw e;
   } finally {
     logger.info("llm.call", {
       elapsed_ms: Date.now() - start,
@@ -158,6 +195,9 @@ export async function chatCompletions(body: ChatCompletionRequestBody, opts: Llm
       input_len: JSON.stringify(body).length,
       request_id: requestId,
       retries: maxRetries,
+      attempts: attemptsRef.attempts,
+      status,
+      outcome,
     });
   }
 }

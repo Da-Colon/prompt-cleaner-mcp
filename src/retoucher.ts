@@ -84,6 +84,13 @@ export async function retouchPrompt(input: RetouchInputT): Promise<RetouchOutput
   const userBody = `MODE: ${input.mode || "general"}\nRAW_PROMPT:\n${input.prompt}`;
   const sys = system;
 
+  class RetoucherNonJsonError extends Error {
+    constructor(message = "Retoucher returned non-JSON") {
+      super(message);
+      this.name = "RetoucherNonJsonError";
+    }
+  }
+
   // Retry loop for content-level non-JSON responses
   const maxAttempts = Math.max(1, 1 + (config.contentMaxRetries ?? 0));
   let lastErr: Error | undefined;
@@ -118,11 +125,13 @@ export async function retouchPrompt(input: RetouchInputT): Promise<RetouchOutput
         input_len: input.prompt.length,
         preview: logger.preview(input.prompt),
         request_id: input.requestId,
+        attempts: attempt,
+        outcome: "ok",
       });
 
       return result;
     } catch (e: any) {
-      lastErr = new Error("Retoucher returned non-JSON");
+      lastErr = new RetoucherNonJsonError("Retoucher returned non-JSON");
       if (attempt < maxAttempts) {
         const base = config.backoffMs ?? 250;
         const jitter = config.backoffJitter ?? 0.2;
@@ -140,5 +149,14 @@ export async function retouchPrompt(input: RetouchInputT): Promise<RetouchOutput
       }
     }
   }
-  throw lastErr ?? new Error("Retoucher returned non-JSON");
+  logger.info("retouch.prompt", {
+    elapsed_ms: Date.now() - start,
+    input_len: input.prompt.length,
+    preview: logger.preview(input.prompt),
+    request_id: input.requestId,
+    attempts: maxAttempts,
+    outcome: "error",
+    reason: "non-json",
+  });
+  throw lastErr ?? new RetoucherNonJsonError("Retoucher returned non-JSON");
 }
