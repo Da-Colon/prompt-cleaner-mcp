@@ -1,7 +1,7 @@
 import { promises as fs } from "fs";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
-import { simpleCompletion } from "./llm.js";
+import { chatCompletions } from "./llm.js";
 import { RetouchInputT, RetouchOutput, RetouchOutputT } from "./shapes.js";
 import { ensureNoSecretsInObject, redactSecrets } from "./redact.js";
 import { config } from "./config.js";
@@ -80,7 +80,7 @@ function extractFirstJsonObject(text: string): any {
 export async function retouchPrompt(input: RetouchInputT): Promise<RetouchOutputT> {
   const start = Date.now();
   const system = await loadCleanerSystemPrompt();
-  const temperature = input.temperature ?? 0;
+  const baseTemperature = input.temperature ?? 0;
 
   const userBody = `MODE: ${input.mode || "general"}\nRAW_PROMPT:\n${input.prompt}`;
   const sys = system;
@@ -96,16 +96,25 @@ export async function retouchPrompt(input: RetouchInputT): Promise<RetouchOutput
   const maxAttempts = Math.max(1, 1 + (config.contentMaxRetries ?? 0));
   let lastErr: Error | undefined;
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-    const res = await simpleCompletion(
-      // Combine system with user in one turn for compatibility
-      `${sys}\n\n${userBody}`,
-      config.model,
-      temperature,
-      600,
-      { requestId: input.requestId }
-    );
+    // Escalate on retries: enforce temperature 0 and stricter system instructions
+    const strictSuffix = attempt > 1
+      ? "\n\nSTRICT OUTPUT MODE: Respond with EXACTLY ONE JSON object and nothing else. No prose. No code fences. No prefix/suffix."
+      : "";
+    const sysAttempt = sys + strictSuffix;
+    const tempAttempt = attempt > 1 ? 0 : baseTemperature;
 
-    const initial = redactSecrets(res.completion);
+    const response = await chatCompletions({
+      model: config.model,
+      temperature: tempAttempt,
+      max_tokens: 600,
+      messages: [
+        { role: "system", content: sysAttempt },
+        { role: "user", content: userBody },
+      ],
+    }, { requestId: input.requestId });
+
+    const content = response.choices?.[0]?.message?.content ?? "";
+    const initial = redactSecrets(content);
     const redactedText = initial.text;
     try {
       const obj = extractFirstJsonObject(redactedText);

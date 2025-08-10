@@ -36,13 +36,9 @@ async function main() {
     const withRid = { ...(args as any), requestId };
     logger.info("tools.call.start", { name, request_id: requestId });
     const res: any = await callTool(name, withRid);
-    // Normalize unsupported content types for MCP clients (e.g., some don't accept "json")
-    const normalizedContent = Array.isArray(res?.content)
-      ? res.content.map((c: any) => (c && c.type === "json" ? { type: "text", text: JSON.stringify(c.json) } : c))
-      : res?.content;
-    const out = { ...res, content: normalizedContent };
     logger.info("tools.call.done", { name, request_id: requestId });
-    return out;
+    // Return MCP-spec content unchanged (including json type when present)
+    return res;
   });
 
   const transport = new StdioServerTransport();

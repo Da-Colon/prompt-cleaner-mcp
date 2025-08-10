@@ -17,6 +17,8 @@ export interface ChatCompletionRequestBody {
   temperature?: number;
   max_tokens?: number;
   stream?: boolean;
+  // Optional OpenAI-style response format. We set this when config.forceJson is true.
+  response_format?: { type: string };
 }
 
 export interface ChatCompletionResponse {
@@ -171,9 +173,14 @@ export async function chatCompletions(body: ChatCompletionRequestBody, opts: Llm
   let outcome: "ok" | "error" = "ok";
   let status: number | undefined;
   try {
+    // Respect config.forceJson by injecting response_format unless caller provided one
+    const bodyToSend: ChatCompletionRequestBody = {
+      ...body,
+      ...(config.forceJson && !body.response_format ? { response_format: { type: "json_object" } } : {}),
+    };
     const res = await rawFetch("/chat/completions", {
       method: "POST",
-      body: JSON.stringify(body),
+      body: JSON.stringify(bodyToSend),
     }, timeoutMs, retry, opts.apiKey, requestId, attemptsRef);
     status = res.status;
     const text = await res.text();

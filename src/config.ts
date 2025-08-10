@@ -11,6 +11,7 @@ export interface AppConfig {
   timeoutMs: number
   logLevel: LogLevel
   enforceLocalApi: boolean
+  forceJson: boolean
   maxRetries: number
   contentMaxRetries: number
   backoffMs: number
@@ -56,6 +57,7 @@ export const config: AppConfig = {
   timeoutMs: parseNumber(process.env.LLM_TIMEOUT_MS, 60_000),
   logLevel: parseLogLevel(process.env.LOG_LEVEL, "info"),
   enforceLocalApi: parseBoolean(process.env.ENFORCE_LOCAL_API, false),
+  forceJson: parseBoolean(process.env.LLM_FORCE_JSON, false),
   maxRetries: Math.max(0, Math.floor(parseNumber(process.env.LLM_MAX_RETRIES, 1))),
   contentMaxRetries: Math.max(0, Math.floor(parseNumber(process.env.RETOUCH_CONTENT_MAX_RETRIES, 1))),
   backoffMs: parseNumber(process.env.LLM_BACKOFF_MS, 250),

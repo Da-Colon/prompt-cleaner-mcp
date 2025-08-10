@@ -2,18 +2,23 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 vi.mock("../src/llm.js", () => {
   return {
-    simpleCompletion: vi.fn(async (prompt: string, model: string) => {
-      // Default mock returns a clean JSON
+    chatCompletions: vi.fn(async (body: any) => {
+      // Default mock returns a clean JSON inside assistant message content
       return {
-        completion: '{"retouched":"Cleaned","notes":["n"],"openQuestions":["q"],"risks":["r"]}',
-        model,
+        id: "x",
+        object: "chat.completion",
+        created: Date.now(),
+        model: body?.model || "mock-model",
+        choices: [
+          { index: 0, message: { role: "assistant", content: '{"retouched":"Cleaned","notes":["n"],"openQuestions":["q"],"risks":["r"]}' }, finish_reason: "stop" }
+        ],
         usage: { prompt_tokens: 1, completion_tokens: 1 }
-      };
+      } as any;
     })
   };
 });
 
-import { simpleCompletion } from "../src/llm.js";
+import { chatCompletions } from "../src/llm.js";
 import { retouchPrompt } from "../src/cleaner.js";
 import { config } from "../src/config.js";
 
@@ -33,9 +38,13 @@ describe("cleaner", () => {
   });
 
   it("redacts secrets and never leaks raw", async () => {
-    (simpleCompletion as any).mockResolvedValueOnce({
-      completion: '{"retouched":"Use key sk-SECRETKEY in code","notes":[]}',
-      model: "local-coder"
+    (chatCompletions as any).mockResolvedValueOnce({
+      id: "x",
+      object: "chat.completion",
+      created: Date.now(),
+      model: "local-coder",
+      choices: [{ index: 0, message: { role: "assistant", content: '{"retouched":"Use key sk-SECRETKEY in code","notes":[]}' }, finish_reason: "stop" }],
+      usage: { prompt_tokens: 1, completion_tokens: 1 }
     });
     const out = await retouchPrompt({ prompt: "Please use sk-ANOTHERSECRET in function" });
     expect(out.retouched.includes("[REDACTED]")).toBe(true);
@@ -44,14 +53,32 @@ describe("cleaner", () => {
 
   it("throws on non-JSON from model after retries", async () => {
     // Ensure both attempts return non-JSON to force failure
-    (simpleCompletion as any).mockResolvedValueOnce({ completion: "garbage text no json", model: "local-coder" });
-    (simpleCompletion as any).mockResolvedValueOnce({ completion: "still not json", model: "local-coder" });
+    (chatCompletions as any).mockResolvedValueOnce({
+      id: "x1",
+      object: "chat.completion",
+      created: Date.now(),
+      model: "local-coder",
+      choices: [{ index: 0, message: { role: "assistant", content: "garbage text no json" }, finish_reason: "stop" }],
+    });
+    (chatCompletions as any).mockResolvedValueOnce({
+      id: "x2",
+      object: "chat.completion",
+      created: Date.now(),
+      model: "local-coder",
+      choices: [{ index: 0, message: { role: "assistant", content: "still not json" }, finish_reason: "stop" }],
+    });
     await expect(retouchPrompt({ prompt: "x" })).rejects.toThrow("Cleaner returned non-JSON");
   });
 
   it("recovers if a retry returns valid JSON", async () => {
     // First attempt bad, second falls back to default mock (valid JSON)
-    (simpleCompletion as any).mockResolvedValueOnce({ completion: "not json", model: "local-coder" });
+    (chatCompletions as any).mockResolvedValueOnce({
+      id: "x3",
+      object: "chat.completion",
+      created: Date.now(),
+      model: "local-coder",
+      choices: [{ index: 0, message: { role: "assistant", content: "not json" }, finish_reason: "stop" }],
+    });
     const out = await retouchPrompt({ prompt: "hello" });
     expect(out.retouched).toBeDefined();
   });
