@@ -7,7 +7,7 @@ describe("shapes", () => {
   it("jsonContent returns JSON content first", () => {
     const out = jsonContent({ ok: true });
     expect(Array.isArray(out.content)).toBe(true);
-    expect(out.content[0]).toEqual({ type: "json", json: { ok: true } });
+    expect(out.content[0]).toEqual({ type: "text", text: "{\"ok\":true}" });
   });
 
   it("RetouchInput validates prompt required", () => {

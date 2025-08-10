@@ -3,7 +3,7 @@ import { retouchPrompt } from "./cleaner.js";
 import { logger } from "./log.js";
 
 export function jsonContent(json: unknown) {
-  return { content: [{ type: "json" as const, json }] };
+  return { content: [{ type: "text" as const, text: JSON.stringify(json) }] };
 }
 
 export function listTools() {

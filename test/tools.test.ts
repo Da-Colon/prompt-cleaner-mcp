@@ -29,18 +29,19 @@ describe("tools registry", () => {
 
   it("health.ping returns ok true", async () => {
     const out = await callTool("health-ping", {});
-    expect(out.content[0].type).toBe("json");
-    expect((out.content[0] as any).json).toEqual({ ok: true });
+    expect(out.content[0].type).toBe("text");
+    const payload = JSON.parse((out.content[0] as any).text);
+    expect(payload).toEqual({ ok: true });
   });
 
   it("aliases route to cleaner implementation", async () => {
     const req = { prompt: "hello", mode: "general" } as any;
     const out1 = await callTool("sanitize-text", req);
     const out2 = await callTool("normalize-prompt", req);
-    expect(out1.content[0].type).toBe("json");
-    expect(out2.content[0].type).toBe("json");
-    const j1 = (out1.content[0] as any).json;
-    const j2 = (out2.content[0] as any).json;
+    expect(out1.content[0].type).toBe("text");
+    expect(out2.content[0].type).toBe("text");
+    const j1 = JSON.parse((out1.content[0] as any).text);
+    const j2 = JSON.parse((out2.content[0] as any).text);
     expect(j1.retouched).toBeDefined();
     expect(j2.retouched).toBeDefined();
   });
