@@ -1,17 +1,26 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { chatCompletions } from "../src/llm.js";
+import { config } from "../src/config.js";
 
 const realFetch = globalThis.fetch;
 
 describe("llm client", () => {
   beforeEach(() => {
     vi.useFakeTimers();
+    // Minimize and stabilize backoff during tests
+    (config as any)._origBackoffMs = config.backoffMs;
+    (config as any)._origBackoffJitter = config.backoffJitter;
+    config.backoffMs = 1;
+    config.backoffJitter = 0;
   });
   afterEach(async () => {
     // Drain any pending timers created by timeouts/aborts to avoid unhandled rejections
     await vi.runOnlyPendingTimersAsync();
     vi.clearAllTimers();
     vi.useRealTimers();
+    // Restore config
+    config.backoffMs = (config as any)._origBackoffMs ?? config.backoffMs;
+    config.backoffJitter = (config as any)._origBackoffJitter ?? config.backoffJitter;
     globalThis.fetch = realFetch as any;
   });
 
@@ -32,8 +41,11 @@ describe("llm client", () => {
       .mockResolvedValueOnce(r1)
       .mockResolvedValueOnce(r2) as any;
 
-    const p = chatCompletions({ model: "m", messages: [{ role: "user", content: "hi" }] }, { timeoutMs: 100, retry: true });
-    await expect(p).rejects.toThrow(/LLM HTTP 500: oops2/);
+    const p = chatCompletions({ model: "m", messages: [{ role: "user", content: "hi" }] }, { timeoutMs: 100, retry: true, maxRetries: 1 });
+    // Advance fake timers to elapse retry backoff sleep
+    const expectation = expect(p).rejects.toThrow(/LLM HTTP 500: oops2/);
+    await vi.advanceTimersByTimeAsync(1);
+    await expectation;
   });
 
   it("surfaces HTTP 400 without retry", async () => {

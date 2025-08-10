@@ -1,4 +1,4 @@
-import dotenv from "dotenv"
+import * as dotenv from "dotenv"
 
 dotenv.config()
 
@@ -11,6 +11,9 @@ export interface AppConfig {
   timeoutMs: number
   logLevel: LogLevel
   enforceLocalApi: boolean
+  maxRetries: number
+  backoffMs: number
+  backoffJitter: number // 0..1 multiplier range
 }
 
 function parseNumber(val: string | undefined, fallback: number): number {
@@ -39,6 +42,12 @@ function parseBoolean(val: string | undefined, fallback: boolean): boolean {
   return fallback
 }
 
+function parseFraction(val: string | undefined, fallback: number): number {
+  const n = Number(val)
+  if (!Number.isFinite(n)) return fallback
+  return Math.min(1, Math.max(0, n))
+}
+
 export const config: AppConfig = {
   apiBase: process.env.LLM_API_BASE?.trim() || "http://localhost:1234/v1",
   apiKey: process.env.LLM_API_KEY || undefined,
@@ -46,6 +55,9 @@ export const config: AppConfig = {
   timeoutMs: parseNumber(process.env.LLM_TIMEOUT_MS, 60_000),
   logLevel: parseLogLevel(process.env.LOG_LEVEL, "info"),
   enforceLocalApi: parseBoolean(process.env.ENFORCE_LOCAL_API, false),
+  maxRetries: Math.max(0, Math.floor(parseNumber(process.env.LLM_MAX_RETRIES, 1))),
+  backoffMs: parseNumber(process.env.LLM_BACKOFF_MS, 250),
+  backoffJitter: parseFraction(process.env.LLM_BACKOFF_JITTER, 0.2),
 }
 
 export function assertLocalBaseUrl(base: string) {

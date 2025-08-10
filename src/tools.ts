@@ -67,6 +67,7 @@ export async function callTool(name: string, args: unknown) {
           elapsed_ms: Date.now() - start,
           input_len: parsed.prompt.length,
           preview: logger.preview(parsed.prompt),
+          request_id: parsed.requestId,
         })
         return jsonContent(safe)
       }
@@ -78,7 +79,8 @@ export async function callTool(name: string, args: unknown) {
           toSend,
           model,
           parsed.temperature ?? 0,
-          parsed.maxTokens ?? 800
+          parsed.maxTokens ?? 800,
+          { requestId: parsed.requestId }
         )
         const safe = ForwardOutput.parse(res)
         const redactedOut = ensureNoSecretsInObject(safe).value // ensure no secrets echo back
@@ -87,6 +89,7 @@ export async function callTool(name: string, args: unknown) {
           model,
           input_len: parsed.prompt.length,
           preview: logger.preview(parsed.prompt),
+          request_id: parsed.requestId,
         })
         return jsonContent(redactedOut)
       }

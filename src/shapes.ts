@@ -6,6 +6,7 @@ export const RetouchInput = z.object({
   prompt: z.string().min(1),
   mode: z.enum(["code", "general"]).optional(),
   temperature: z.number().min(0).max(2).optional(),
+  requestId: z.string().uuid().optional(),
 });
 
 export const RetouchOutput = z.object({
@@ -22,6 +23,7 @@ export const ForwardInput = z.object({
   temperature: z.number().min(0).max(2).optional(),
   maxTokens: z.number().int().positive().max(200000).optional(),
   sanitize: z.boolean().optional(),
+  requestId: z.string().uuid().optional(),
 });
 
 export const ForwardOutput = z.object({

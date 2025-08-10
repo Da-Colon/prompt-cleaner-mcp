@@ -1,6 +1,7 @@
 import { config, assertLocalBaseUrl } from "./config.js";
 import { logger } from "./log.js";
 import { redactSecrets } from "./redact.js";
+import { randomUUID } from "crypto";
 
 assertLocalBaseUrl(config.apiBase);
 
@@ -36,9 +37,22 @@ export interface LlmCallOptions {
   timeoutMs?: number;
   retry?: boolean;
   apiKey?: string;
+  requestId?: string;
+  maxRetries?: number;
 }
 
-async function rawFetch(path: string, init: any, timeoutMs: number, retry: boolean, apiKey?: string): Promise<Response> {
+function sleep(ms: number) {
+  return new Promise((res) => setTimeout(res, ms));
+}
+
+function backoffDelay(baseMs: number, attempt: number, jitter: number) {
+  const exp = baseMs * Math.pow(2, Math.max(0, attempt - 1));
+  const j = (Math.random() * 2 - 1) * jitter; // [-jitter, +jitter]
+  const factor = 1 + j;
+  return Math.max(0, Math.floor(exp * factor));
+}
+
+async function rawFetch(path: string, init: any, timeoutMs: number, retry: boolean, apiKey: string | undefined, requestId: string): Promise<Response> {
   // Ensure we preserve any base path (e.g. /v1) when joining URLs
   const base = config.apiBase.endsWith("/") ? config.apiBase : config.apiBase + "/";
   const rel = path.startsWith("/") ? path.slice(1) : path;
@@ -48,6 +62,7 @@ async function rawFetch(path: string, init: any, timeoutMs: number, retry: boole
   };
   const key = apiKey ?? config.apiKey;
   if (key) headers["authorization"] = `Bearer ${key}`;
+  if (requestId) headers["x-request-id"] = requestId;
   if (init?.headers) Object.assign(headers, init.headers);
 
   const doFetch = async () => {
@@ -55,8 +70,9 @@ async function rawFetch(path: string, init: any, timeoutMs: number, retry: boole
     const fetchPromise = fetch(url, { ...init, headers, signal: controller.signal });
     // Avoid unhandled rejection when the fetch is aborted after Promise.race settles
     fetchPromise.catch(() => {});
+    let timer: ReturnType<typeof setTimeout> | undefined;
     const timeoutPromise: Promise<Response> = new Promise((_, reject) => {
-      setTimeout(() => {
+      timer = setTimeout(() => {
         controller.abort();
         reject(new Error(`LLM timeout after ${timeoutMs}ms`));
       }, timeoutMs);
@@ -64,8 +80,10 @@ async function rawFetch(path: string, init: any, timeoutMs: number, retry: boole
     try {
       // Race fetch against timeout to ensure deterministic timeout in tests
       const res = await Promise.race([fetchPromise, timeoutPromise]);
+      if (timer) clearTimeout(timer);
       return res as Response;
     } catch (e: any) {
+      if (timer) clearTimeout(timer);
       if (e?.name === "AbortError" || String(e?.message || "").startsWith("LLM timeout after")) {
         throw new Error(`LLM timeout after ${timeoutMs}ms`);
       }
@@ -73,24 +91,44 @@ async function rawFetch(path: string, init: any, timeoutMs: number, retry: boole
     }
   };
 
-  try {
-    const res = await doFetch();
-    if (res.ok) return res;
-    if (retry && res.status >= 500 && res.status < 600) {
-      logger.warn("LLM 5xx, retrying once", { status: res.status });
-      const res2 = await doFetch();
-      if (res2.ok) return res2;
-      const body2 = await res2.text();
-      const redacted2 = redactSecrets(body2).text;
-      throw new Error(`LLM HTTP ${res2.status}: ${redacted2.slice(0, 300)}`);
+  const maxRetries = retry ? Math.max(0, Math.floor(config.maxRetries)) : 0;
+  let attempt = 0;
+  // Keep last failure message for throw
+  let lastErrorMsg = "LLM request failed";
+  class NonRetryableError extends Error {}
+  while (true) {
+    attempt++;
+    try {
+      const res = await doFetch();
+      if (res.ok) return res;
+      const body = await res.text();
+      const redacted = redactSecrets(body).text;
+      lastErrorMsg = `LLM HTTP ${res.status}: ${redacted.slice(0, 300)}`;
+      const retryable = res.status >= 500 && res.status < 600;
+      if (!retryable || attempt > maxRetries) {
+        throw new NonRetryableError(lastErrorMsg);
+      }
+      const delay = backoffDelay(config.backoffMs, attempt, config.backoffJitter);
+      logger.warn("llm.retry", { request_id: requestId, attempt, status: res.status, delay_ms: delay });
+      await sleep(delay);
+      continue;
+    } catch (e: any) {
+      if (e instanceof NonRetryableError) {
+        throw e;
+      }
+      const msg = String(e?.message || e || lastErrorMsg);
+      // Timeouts are final
+      if (msg.startsWith("LLM timeout after")) throw new Error(msg);
+      lastErrorMsg = msg;
+      // Retry on network errors if allowed
+      if (attempt <= maxRetries) {
+        const delay = backoffDelay(config.backoffMs, attempt, config.backoffJitter);
+        logger.warn("llm.retry", { request_id: requestId, attempt, error: msg, delay_ms: delay });
+        await sleep(delay);
+        continue;
+      }
+      throw new Error(lastErrorMsg);
     }
-    const body = await res.text();
-    const redacted = redactSecrets(body).text;
-    throw new Error(`LLM HTTP ${res.status}: ${redacted.slice(0, 300)}`);
-  } catch (e: any) {
-    if (String(e?.message || "").startsWith("LLM timeout after")) throw e;
-    // Fetch may throw AbortError or network error; normalize
-    throw new Error(e?.message || "LLM request failed");
   }
 }
 
@@ -98,11 +136,13 @@ export async function chatCompletions(body: ChatCompletionRequestBody, opts: Llm
   const start = Date.now();
   const timeoutMs = opts.timeoutMs ?? config.timeoutMs;
   const retry = opts.retry ?? true;
+  const requestId = opts.requestId || randomUUID();
+  const maxRetries = opts.maxRetries ?? config.maxRetries;
 
   const res = await rawFetch("/chat/completions", {
     method: "POST",
     body: JSON.stringify(body),
-  }, timeoutMs, retry, opts.apiKey);
+  }, timeoutMs, retry, opts.apiKey, requestId);
 
   const text = await res.text();
   try {
@@ -116,6 +156,8 @@ export async function chatCompletions(body: ChatCompletionRequestBody, opts: Llm
       elapsed_ms: Date.now() - start,
       model: body.model,
       input_len: JSON.stringify(body).length,
+      request_id: requestId,
+      retries: maxRetries,
     });
   }
 }

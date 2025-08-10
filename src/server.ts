@@ -9,6 +9,7 @@ import {
 import { listTools, callTool } from "./tools.js";
 import { logger } from "./log.js";
 import { config } from "./config.js";
+import { randomUUID } from "crypto";
 
 async function main() {
   const server = new Server(
@@ -31,14 +32,16 @@ async function main() {
   server.setRequestHandler(CallToolRequestSchema, async (request) => {
     const name = request.params.name;
     const args = request.params.arguments ?? {};
-    logger.info("tools.call.start", { name });
-    const res: any = await callTool(name, args);
+    const requestId = (args as any)?.requestId || randomUUID();
+    const withRid = { ...(args as any), requestId };
+    logger.info("tools.call.start", { name, request_id: requestId });
+    const res: any = await callTool(name, withRid);
     // Normalize unsupported content types for MCP clients (e.g., some don't accept "json")
     const normalizedContent = Array.isArray(res?.content)
       ? res.content.map((c: any) => (c && c.type === "json" ? { type: "text", text: JSON.stringify(c.json) } : c))
       : res?.content;
     const out = { ...res, content: normalizedContent };
-    logger.info("tools.call.done", { name });
+    logger.info("tools.call.done", { name, request_id: requestId });
     return out;
   });
 

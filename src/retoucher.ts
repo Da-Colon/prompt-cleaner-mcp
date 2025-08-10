@@ -89,7 +89,8 @@ export async function retouchPrompt(input: RetouchInputT): Promise<RetouchOutput
     `${sys}\n\n${userBody}`,
     config.model,
     temperature,
-    600
+    600,
+    { requestId: input.requestId }
   );
 
   const initial = redactSecrets(res.completion);
@@ -111,6 +112,7 @@ export async function retouchPrompt(input: RetouchInputT): Promise<RetouchOutput
     elapsed_ms: Date.now() - start,
     input_len: input.prompt.length,
     preview: logger.preview(input.prompt),
+    request_id: input.requestId,
   });
 
   return result;
