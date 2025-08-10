@@ -5,7 +5,7 @@ describe("tools registry", () => {
   it("registers two tools", () => {
     const tools = listTools();
     const names = tools.map(t => t.name).sort();
-    expect(names).toEqual(["health-ping", "retouch-prompt"].sort());
+    expect(names).toEqual(["health-ping", "cleaner"].sort());
   });
 
   it("health.ping returns ok true", async () => {

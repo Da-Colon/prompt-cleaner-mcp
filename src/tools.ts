@@ -1,10 +1,9 @@
-import { z } from "zod"
-import { RetouchInput, RetouchOutput } from "./shapes.js"
-import { retouchPrompt } from "./cleaner.js"
-import { logger } from "./log.js"
+import { RetouchInput, RetouchOutput } from "./shapes.js";
+import { retouchPrompt } from "./cleaner.js";
+import { logger } from "./log.js";
 
 export function jsonContent(json: unknown) {
-  return { content: [{ type: "json" as const, json }] }
+  return { content: [{ type: "json" as const, json }] };
 }
 
 export function listTools() {
@@ -15,9 +14,9 @@ export function listTools() {
       inputSchema: { type: "object", properties: {} },
     },
     {
-      name: "retouch-prompt",
+      name: "cleaner",
       description:
-        "Clean/retouch a raw prompt; returns structured JSON with retouched string and optional notes/openQuestions/risks/redactions",
+        "Clean a raw prompt; returns structured JSON with retouched string and optional notes/openQuestions/risks/redactions",
       inputSchema: {
         type: "object",
         properties: {
@@ -28,38 +27,36 @@ export function listTools() {
         required: ["prompt"],
       },
     },
-  ]
+  ];
 }
 
 export async function callTool(name: string, args: unknown) {
-  const start = Date.now()
+  const start = Date.now();
   try {
     switch (name) {
       case "health-ping": {
-        const out = { ok: true } as const
-        logger.info("health.ping", { elapsed_ms: Date.now() - start })
-        return jsonContent(out)
+        const out = { ok: true } as const;
+        logger.info("health.ping", { elapsed_ms: Date.now() - start });
+        return jsonContent(out);
       }
-      case "retouch-prompt":
-      case "retoucher":
       case "cleaner": {
-        const parsed = RetouchInput.parse(args)
-        const result = await retouchPrompt(parsed)
-        const safe = RetouchOutput.parse(result)
+        const parsed = RetouchInput.parse(args);
+        const result = await retouchPrompt(parsed);
+        const safe = RetouchOutput.parse(result);
         logger.info("retouch.prompt", {
           elapsed_ms: Date.now() - start,
           input_len: parsed.prompt.length,
           preview: logger.preview(parsed.prompt),
           request_id: parsed.requestId,
-        })
-        return jsonContent(safe)
+        });
+        return jsonContent(safe);
       }
       default:
-        throw new Error("Unknown tool")
+        throw new Error("Unknown tool");
     }
   } catch (e: any) {
-    const msg = String(e?.message || e || "Unknown error")
-    logger.error("tool.error", { tool: name, msg })
-    throw new Error(msg)
+    const msg = String(e?.message || e || "Unknown error");
+    logger.error("tool.error", { tool: name, msg });
+    throw new Error(msg);
   }
 }

@@ -1,14 +1,14 @@
-![Prompt Retoucher](./prompt-cleaner-banner-1280x640.png)
+![Prompt Cleaner](./prompt-cleaner-banner-1280x640.png)
 
 # Prompt Cleaner (MCP Server)
 
-TypeScript MCP server exposing a prompt cleaning tool and health checks. All prompts route through `retouch-prompt` (aliases: `retoucher`, `cleaner`), with secret redaction, structured schemas, and client-friendly output normalization.
+TypeScript MCP server exposing a prompt cleaning tool and health checks. All prompts route through `cleaner`, with secret redaction, structured schemas, and client-friendly output normalization.
 
 ## Features
 
 - **Tools**
   - `health-ping`: liveness probe returning `{ ok: true }`.
-  - `retouch-prompt` (aliases: `retoucher`, `cleaner`): clean/retouch a raw prompt; returns structured JSON with retouched string, notes, openQuestions, risks, and redactions.
+  - `cleaner`: clean a raw prompt; returns structured JSON with retouched string, notes, openQuestions, risks, and redactions.
 - **Secret redaction**: Sensitive patterns are scrubbed from logs and outputs in `src/redact.ts`.
 - **Output normalization**: `src/server.ts` converts content with `type: "json"` to plain text for clients that reject JSON content types.
 - **Configurable**: LLM base URL, API key, model, timeout, log level; optional local-only enforcement.
@@ -79,7 +79,7 @@ All tools follow MCP Tool semantics. Content is returned as `[{ type: "json", js
   - Input: `{}`
   - Output: `{ ok: true }`
 
-- **retouch-prompt** (aliases: `retoucher`, `cleaner`)
+- **cleaner**
   - Input: `{ prompt: string, mode?: "code"|"general", temperature?: number }`
   - Output: `{ retouched: string, notes?: string[], openQuestions?: string[], risks?: string[], redactions?: ["[REDACTED]"][] }`
   - Behavior: Applies a system prompt from `prompts/cleaner.md`, calls the configured LLM, extracts first JSON object, validates with Zod, and redacts secrets.
@@ -108,7 +108,7 @@ npm test
 
 - **Single-model policy**: Uses `LLM_MODEL` from environment; no model listing/selection tool to keep behavior deterministic and reduce surface area.
 - **Output normalization**: `src/server.ts` converts `json` content to `text` for clients that reject JSON.
-- **Aliases**: `retoucher` and `cleaner` are aliases of `retouch-prompt`.
+  
 - **Secret redaction**: `src/redact.ts` scrubs sensitive tokens from logs and outputs.
 
 ## Troubleshooting
@@ -148,7 +148,7 @@ Add an MCP server in Windsurf settings, pointing to the built stdio server:
 
 Usage:
 
-- In a chat, ask the agent to use `retoucher` or `cleaner` (aliases of `retouch-prompt`) with your raw prompt.
+- In a chat, ask the agent to use `cleaner` with your raw prompt.
 - Or invoke tools from the agent UI if exposed by your setup.
 
 ## Claude Desktop (example)
