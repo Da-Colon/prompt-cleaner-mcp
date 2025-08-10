@@ -14,10 +14,10 @@ vi.mock("../src/llm.js", () => {
 });
 
 import { simpleCompletion } from "../src/llm.js";
-import { retouchPrompt } from "../src/retoucher.js";
+import { retouchPrompt } from "../src/cleaner.js";
 import { config } from "../src/config.js";
 
-describe("retoucher", () => {
+describe("cleaner", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     // Minimize retry delays for fast tests
@@ -46,7 +46,7 @@ describe("retoucher", () => {
     // Ensure both attempts return non-JSON to force failure
     (simpleCompletion as any).mockResolvedValueOnce({ completion: "garbage text no json", model: "local-coder" });
     (simpleCompletion as any).mockResolvedValueOnce({ completion: "still not json", model: "local-coder" });
-    await expect(retouchPrompt({ prompt: "x" })).rejects.toThrow("Retoucher returned non-JSON");
+    await expect(retouchPrompt({ prompt: "x" })).rejects.toThrow("Cleaner returned non-JSON");
   });
 
   it("recovers if a retry returns valid JSON", async () => {

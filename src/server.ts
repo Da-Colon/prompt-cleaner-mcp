@@ -14,7 +14,7 @@ import { randomUUID } from "crypto";
 async function main() {
   const server = new Server(
     {
-      name: "mcp-retoucher",
+      name: "prompt-cleaner",
       version: "0.1.0",
     },
     {

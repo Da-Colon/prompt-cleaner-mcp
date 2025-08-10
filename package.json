@@ -1,7 +1,7 @@
 {
-  "name": "mcp-retoucher",
+  "name": "prompt-cleaner",
   "version": "0.1.0",
-  "description": "Retouch+Forward MCP server",
+  "description": "Prompt Cleaner MCP server",
   "private": true,
   "type": "module",
   "license": "MIT",
@@ -9,6 +9,7 @@
     "node": ">=20"
   },
   "bin": {
+    "prompt-cleaner": "./dist/server.js",
     "mcp-retoucher": "./dist/server.js"
   },
   "files": [

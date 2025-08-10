@@ -1,6 +1,6 @@
 import { z } from "zod"
 import { RetouchInput, RetouchOutput } from "./shapes.js"
-import { retouchPrompt } from "./retoucher.js"
+import { retouchPrompt } from "./cleaner.js"
 import { logger } from "./log.js"
 
 export function jsonContent(json: unknown) {
@@ -17,7 +17,7 @@ export function listTools() {
     {
       name: "retouch-prompt",
       description:
-        "Retouch a raw prompt; returns structured JSON with retouched string and optional notes/openQuestions/risks/redactions",
+        "Clean/retouch a raw prompt; returns structured JSON with retouched string and optional notes/openQuestions/risks/redactions",
       inputSchema: {
         type: "object",
         properties: {
@@ -41,7 +41,8 @@ export async function callTool(name: string, args: unknown) {
         return jsonContent(out)
       }
       case "retouch-prompt":
-      case "retoucher": {
+      case "retoucher":
+      case "cleaner": {
         const parsed = RetouchInput.parse(args)
         const result = await retouchPrompt(parsed)
         const safe = RetouchOutput.parse(result)
