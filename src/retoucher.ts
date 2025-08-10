@@ -84,36 +84,61 @@ export async function retouchPrompt(input: RetouchInputT): Promise<RetouchOutput
   const userBody = `MODE: ${input.mode || "general"}\nRAW_PROMPT:\n${input.prompt}`;
   const sys = system;
 
-  const res = await simpleCompletion(
-    // Combine system with user in one turn for compatibility
-    `${sys}\n\n${userBody}`,
-    config.model,
-    temperature,
-    600,
-    { requestId: input.requestId }
-  );
+  // Retry loop for content-level non-JSON responses
+  const maxAttempts = Math.max(1, 1 + (config.contentMaxRetries ?? 0));
+  let lastErr: Error | undefined;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    const res = await simpleCompletion(
+      // Combine system with user in one turn for compatibility
+      `${sys}\n\n${userBody}`,
+      config.model,
+      temperature,
+      600,
+      { requestId: input.requestId }
+    );
 
-  const initial = redactSecrets(res.completion);
-  const redactedText = initial.text;
-  const obj = extractFirstJsonObject(redactedText);
-  const parsed = RetouchOutput.safeParse(obj);
-  if (!parsed.success) {
-    throw new Error("Retoucher returned non-JSON");
+    const initial = redactSecrets(res.completion);
+    const redactedText = initial.text;
+    try {
+      const obj = extractFirstJsonObject(redactedText);
+      const parsed = RetouchOutput.safeParse(obj);
+      if (!parsed.success) {
+        throw new Error("shape-error");
+      }
+
+      const { value, redactions } = ensureNoSecretsInObject(parsed.data);
+      const totalRedactions = initial.count + redactions;
+      const result: RetouchOutputT = {
+        ...value,
+        redactions: totalRedactions > 0 ? Array(totalRedactions).fill("[REDACTED]") : value.redactions,
+      };
+
+      logger.info("retouch.prompt", {
+        elapsed_ms: Date.now() - start,
+        input_len: input.prompt.length,
+        preview: logger.preview(input.prompt),
+        request_id: input.requestId,
+      });
+
+      return result;
+    } catch (e: any) {
+      lastErr = new Error("Retoucher returned non-JSON");
+      if (attempt < maxAttempts) {
+        const base = config.backoffMs ?? 250;
+        const jitter = config.backoffJitter ?? 0.2;
+        const exp = Math.pow(2, attempt - 1);
+        const rand = 1 + (Math.random() * 2 - 1) * jitter; // 1 +/- jitter
+        const delay = Math.max(0, Math.floor(base * exp * rand));
+        logger.warn("retouch.retry", {
+          request_id: input.requestId,
+          attempt,
+          delay_ms: delay,
+          reason: "non-json",
+        });
+        await new Promise((r) => setTimeout(r, delay));
+        continue;
+      }
+    }
   }
-
-  const { value, redactions } = ensureNoSecretsInObject(parsed.data);
-  const totalRedactions = initial.count + redactions;
-  const result: RetouchOutputT = {
-    ...value,
-    redactions: totalRedactions > 0 ? Array(totalRedactions).fill("[REDACTED]") : value.redactions,
-  };
-
-  logger.info("retouch.prompt", {
-    elapsed_ms: Date.now() - start,
-    input_len: input.prompt.length,
-    preview: logger.preview(input.prompt),
-    request_id: input.requestId,
-  });
-
-  return result;
+  throw lastErr ?? new Error("Retoucher returned non-JSON");
 }

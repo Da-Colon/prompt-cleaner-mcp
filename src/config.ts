@@ -12,6 +12,7 @@ export interface AppConfig {
   logLevel: LogLevel
   enforceLocalApi: boolean
   maxRetries: number
+  contentMaxRetries: number
   backoffMs: number
   backoffJitter: number // 0..1 multiplier range
 }
@@ -56,6 +57,7 @@ export const config: AppConfig = {
   logLevel: parseLogLevel(process.env.LOG_LEVEL, "info"),
   enforceLocalApi: parseBoolean(process.env.ENFORCE_LOCAL_API, false),
   maxRetries: Math.max(0, Math.floor(parseNumber(process.env.LLM_MAX_RETRIES, 1))),
+  contentMaxRetries: Math.max(0, Math.floor(parseNumber(process.env.RETOUCH_CONTENT_MAX_RETRIES, 1))),
   backoffMs: parseNumber(process.env.LLM_BACKOFF_MS, 250),
   backoffJitter: parseFraction(process.env.LLM_BACKOFF_JITTER, 0.2),
 }
