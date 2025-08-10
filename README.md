@@ -2,7 +2,7 @@
 
 # mcp-retoucher MCP Server
 
-TypeScript MCP server exposing tools for prompt retouching. Includes health checks, secret redaction, structured schemas, and client-friendly output normalization.
+TypeScript MCP server exposing a prompt retouching tool and health checks. All prompts route through `retouch-prompt` (alias: `retoucher`), with secret redaction, structured schemas, and client-friendly output normalization.
 
 ## Features
 
@@ -12,6 +12,7 @@ TypeScript MCP server exposing tools for prompt retouching. Includes health chec
 - **Secret redaction**: Sensitive patterns are scrubbed from logs and outputs in `src/redact.ts`.
 - **Output normalization**: `src/server.ts` converts content with `type: "json"` to plain text for clients that reject JSON content types.
 - **Configurable**: LLM base URL, API key, model, timeout, log level; optional local-only enforcement.
+- **Deterministic model policy**: Single model via `LLM_MODEL`; no dynamic model selection/listing by default.
 
 ## Requirements
 
@@ -32,12 +33,6 @@ npm run build
 npm run dev
 ```
 
-- Production (after build):
-
-```bash
-npm start
-```
-
 ## Inspector (Debugging)
 
 Use the MCP Inspector to exercise tools over stdio:
@@ -56,6 +51,10 @@ Configure via `.env` or environment variables:
 - `LLM_TIMEOUT_MS` (number, default `60000`): Request timeout.
 - `LOG_LEVEL` (`error|warn|info|debug`, default `info`): Log verbosity (logs JSON to stderr).
 - `ENFORCE_LOCAL_API` (`true|false`, default `false`): If `true`, only allow localhost APIs.
+- `LLM_MAX_RETRIES` (number, default `1`): Retry count for retryable HTTP/network errors.
+- `RETOUCH_CONTENT_MAX_RETRIES` (number, default `1`): Retries when the retoucher returns non-JSON content.
+- `LLM_BACKOFF_MS` (number, default `250`): Initial backoff delay in milliseconds.
+- `LLM_BACKOFF_JITTER` (0..1, default `0.2`): Jitter factor applied to backoff.
 
 Example `.env`:
 
@@ -66,6 +65,10 @@ LLM_API_KEY=sk-xxxxx
 LLM_TIMEOUT_MS=60000
 LOG_LEVEL=info
 ENFORCE_LOCAL_API=false
+LLM_MAX_RETRIES=1
+RETOUCH_CONTENT_MAX_RETRIES=1
+LLM_BACKOFF_MS=250
+LLM_BACKOFF_JITTER=0.2
 ```
 
 ## Tools (API Contracts)
@@ -101,6 +104,53 @@ All tools follow MCP Tool semantics. Content is returned as `[{ type: "json", js
 npm test
 ```
 
+## Design decisions
+
+- **Single-model policy**: Uses `LLM_MODEL` from environment; no model listing/selection tool to keep behavior deterministic and reduce surface area.
+- **Output normalization**: `src/server.ts` converts `json` content to `text` for clients that reject JSON.
+- **Alias**: `retoucher` is an alias of `retouch-prompt`.
+- **Secret redaction**: `src/redact.ts` scrubs sensitive tokens from logs and outputs.
+
+## Troubleshooting
+
+- **LLM timeout**: Increase `LLM_TIMEOUT_MS`; check network reachability to `LLM_API_BASE`.
+- **Non-JSON from retoucher**: Retries up to `RETOUCH_CONTENT_MAX_RETRIES`. If persistent, reduce `temperature` or ensure the configured model adheres to the output contract.
+- **HTTP 5xx from LLM**: Automatic retries up to `LLM_MAX_RETRIES` with exponential backoff (`LLM_BACKOFF_MS`, `LLM_BACKOFF_JITTER`).
+- **Local API enforcement error**: If `ENFORCE_LOCAL_API=true`, `LLM_API_BASE` must point to localhost.
+- **Secrets in logs/outputs**: Redaction runs automatically; if you see leaked tokens, update patterns in `src/redact.ts`.
+
+## Windsurf (example)
+
+Add an MCP server in Windsurf settings, pointing to the built stdio server:
+
+```json
+{
+  "mcpServers": {
+    "mcp-retoucher": {
+      "command": "node",
+      "args": ["/absolute/path/to/mcp-retoucher/dist/server.js"],
+      "env": {
+        "LLM_API_BASE": "http://localhost:1234/v1",
+        "LLM_API_KEY": "sk-xxxxx",
+        "LLM_MODEL": "open/ai-gpt-oss-20b",
+        "LLM_TIMEOUT_MS": "60000",
+        "LOG_LEVEL": "info",
+        "ENFORCE_LOCAL_API": "false",
+        "LLM_MAX_RETRIES": "1",
+        "RETOUCH_CONTENT_MAX_RETRIES": "1",
+        "LLM_BACKOFF_MS": "250",
+        "LLM_BACKOFF_JITTER": "0.2"
+      }
+    }
+  }
+}
+```
+
+Usage:
+
+- In a chat, ask the agent to use `retoucher` (alias of `retouch-prompt`) with your raw prompt.
+- Or invoke tools from the agent UI if exposed by your setup.
+
 ## Claude Desktop (example)
 
 Add to your Claude Desktop config to run over stdio:
@@ -113,14 +163,32 @@ Add to your Claude Desktop config to run over stdio:
       "args": ["/absolute/path/to/mcp-retoucher/dist/server.js"],
       "env": {
         "LLM_API_BASE": "http://localhost:1234/v1",
-        "LLM_MODEL": "open/ai-gpt-oss-20b"
+        "LLM_API_KEY": "sk-xxxxx",
+        "LLM_MODEL": "open/ai-gpt-oss-20b",
+        "LLM_TIMEOUT_MS": "60000",
+        "LOG_LEVEL": "info",
+        "ENFORCE_LOCAL_API": "false",
+        "LLM_MAX_RETRIES": "1",
+        "RETOUCH_CONTENT_MAX_RETRIES": "1",
+        "LLM_BACKOFF_MS": "250",
+        "LLM_BACKOFF_JITTER": "0.2"
       }
     }
   }
 }
 ```
 
+## Links
+
+- Model Context Protocol (spec): https://modelcontextprotocol.io
+- Retoucher system prompt: `prompts/retoucher.md`
+
 ## Notes
 
 - Logs are emitted to stderr as JSON lines to avoid interfering with MCP stdio.
 - Some clients reject `json` content types; this server normalizes them to `text` automatically.
+
+## Security
+
+- Secrets are scrubbed by `src/redact.ts` from logs and retoucher outputs.
+- `ENFORCE_LOCAL_API=true` restricts usage to local API endpoints.
