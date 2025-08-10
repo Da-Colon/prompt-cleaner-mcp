@@ -16,13 +16,18 @@ export function listTools() {
     {
       name: "cleaner",
       description:
-        "Clean a raw prompt; returns structured JSON with retouched string and optional notes/openQuestions/risks/redactions",
+        "Prompt Cleaner. Use this on user-supplied text before you reason or respond to normalize tone, redact secrets/PII, and enforce a structured output. Defaults: mode='general', temperature=0.2. Use mode='code' only when the prompt is clearly about code. Do not change the user’s intent or factual content. Returns JSON with retouched text plus optional notes, openQuestions, risks, and redactions.",
       inputSchema: {
         type: "object",
         properties: {
           prompt: { type: "string", description: "Raw user prompt" },
-          mode: { type: "string", enum: ["code", "general"], description: "Retouching mode" },
-          temperature: { type: "number", description: "Sampling temperature (0-2)" },
+          mode: {
+            type: "string",
+            enum: ["code", "general"],
+            description:
+              "Retouching mode; default 'general'. Use 'code' only for code-related prompts.",
+          },
+          temperature: { type: "number", description: "Sampling temperature (0-2); default 0.2" },
         },
         required: ["prompt"],
       },
