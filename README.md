@@ -4,6 +4,10 @@
 
 TypeScript MCP server exposing a prompt cleaning tool and health checks. All prompts route through `cleaner`, with secret redaction, structured schemas, and client-friendly output normalization.
 
+<a href="https://glama.ai/mcp/servers/@Da-Colon/prompt-cleaner-mcp">
+  <img width="380" height="200" src="https://glama.ai/mcp/servers/@Da-Colon/prompt-cleaner-mcp/badge" alt="Prompt Cleaner Server MCP server" />
+</a>
+
 ## Features
 
 - **Tools**
