@@ -6,7 +6,7 @@ export interface RedactionResult {
 // Common secret-ish patterns
 const PATTERNS: RegExp[] = [
   /sk-[A-Za-z0-9_-]{8,}/g, // OpenAI-like (allow short stubs in tests)
-  /(?:[A-Za-z0-9-_]+\.){2}[A-Za-z0-9-_]+/g, // JWT
+  /eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{20,}/g, // JWT (three base64url segments; header starts with eyJ= '{') to avoid matching filenames
   /AKIA[0-9A-Z]{16}/g, // AWS Access Key ID
   /xox[abprs]-[A-Za-z0-9-]+/g, // Slack tokens
   /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g, // emails
